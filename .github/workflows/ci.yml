@@ -99,10 +99,13 @@ jobs:
       # --- 9. Test funcional: validar endpoint principal ---
       - name: Functional test - validate-md5
         run: |
+          # Calcular el hash correcto para el test
+          EXPECTED_HASH=$(python3 -c "import hashlib,json; print(hashlib.md5(json.dumps({'test':True},sort_keys=True,separators=(',',':')).encode()).hexdigest())")
+          
           # Test con hash correcto (debe retornar 200)
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8080/validate-md5 \
             -H "Content-Type: application/json" \
-            -d '{"data": {"test": true}, "md5": "2f43b42fd833d1e77420a8dae7419000"}')
+            -d "{\"data\": {\"test\": true}, \"md5\": \"$EXPECTED_HASH\"}")
           HTTP_CODE=$(echo "$RESPONSE" | tail -1)
           if [ "$HTTP_CODE" != "200" ]; then
             echo "FAIL: Expected 200, got $HTTP_CODE"
