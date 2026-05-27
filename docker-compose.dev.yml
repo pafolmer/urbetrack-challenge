@@ -1,0 +1,12 @@
+# Override para desarrollo local.
+# Uso: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# Agrega:
+# - Bind mount de app/ → el contenedor ve tus cambios en tiempo real
+# - Uvicorn con --reload → reinicia el proceso Python al detectar cambios
+
+services:
+  api:
+    volumes:
+      - ./app:/app    # Monta tu carpeta local dentro del contenedor
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

@@ -1,0 +1,32 @@
+# Git
+.git
+.gitignore
+
+# Python cache
+__pycache__
+*.py[cod]
+*.egg-info
+
+# Tests (no van en la imagen de producción)
+tests/
+
+# CI/CD (no necesario dentro del contenedor)
+.github/
+
+# Documentación (no necesaria en runtime)
+*.md
+
+# Kiro specs (tooling de desarrollo)
+.kiro/
+
+# IDE
+.vscode/
+.idea/
+
+# Environment files
+.env
+.env.*
+
+# Virtual environments
+venv/
+.venv/

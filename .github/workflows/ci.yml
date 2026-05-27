@@ -1,0 +1,133 @@
+# =============================================================================
+# CI Pipeline — Urbetrack MD5 Validator
+# =============================================================================
+# Valida que la solución pueda construirse y ejecutarse correctamente.
+# Corre en cada push a cualquier branch.
+
+name: CI Pipeline
+
+on:
+  push:
+    branches: ["*"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  IMAGE_NAME: urbetrack-api
+  # Demostración de secrets injection: variable simulada inyectada desde
+  # GitHub Secrets al entorno del contenedor. Prueba la capacidad sin
+  # requerir credenciales reales.
+  DEMO_SECRET: ${{ secrets.DEMO_SECRET || 'fallback-for-local-and-first-run' }}
+
+jobs:
+  build-and-validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      # --- 1. Checkout del código ---
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --- 2. Setup Docker Buildx (habilita cache avanzado) ---
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # --- 3. Cache de layers Docker (reduce tiempos en runs subsiguientes) ---
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      # --- 4. Build imagen con tag SHA del commit (trazabilidad) ---
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+
+      # --- 5. Trivy: escaneo de vulnerabilidades HIGH/CRITICAL ---
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+
+      # --- 6. Validar sintaxis del Docker Compose ---
+      - name: Validate Docker Compose config
+        run: docker compose config --quiet
+
+      # --- 7. Levantar el stack completo ---
+      - name: Start Compose stack
+        run: docker compose up -d --build
+        env:
+          DEMO_SECRET: ${{ env.DEMO_SECRET }}
+
+      # --- 8. Healthcheck real contra la API corriendo ---
+      - name: Wait for API to be healthy
+        run: |
+          chmod +x scripts/healthcheck.sh
+          MAX_RETRIES=12 HEALTH_URL=http://localhost:8080/health ./scripts/healthcheck.sh &
+          HEALTH_PID=$!
+          # Esperar a que el healthcheck pase (max 60s)
+          sleep 5
+          for i in $(seq 1 12); do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "API is healthy!"
+              kill $HEALTH_PID 2>/dev/null || true
+              exit 0
+            fi
+            echo "Waiting... attempt $i/12"
+            sleep 5
+          done
+          echo "API failed to become healthy"
+          kill $HEALTH_PID 2>/dev/null || true
+          exit 1
+
+      # --- 9. Test funcional: validar endpoint principal ---
+      - name: Functional test - validate-md5
+        run: |
+          # Test con hash correcto (debe retornar 200)
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8080/validate-md5 \
+            -H "Content-Type: application/json" \
+            -d '{"data": {"test": true}, "md5": "2f43b42fd833d1e77420a8dae7419000"}')
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "FAIL: Expected 200, got $HTTP_CODE"
+            echo "$RESPONSE"
+            exit 1
+          fi
+          echo "PASS: Valid MD5 returns 200"
+
+          # Test con hash incorrecto (debe retornar 400)
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8080/validate-md5 \
+            -H "Content-Type: application/json" \
+            -d '{"data": {"test": true}, "md5": "wrong_hash"}')
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          if [ "$HTTP_CODE" != "400" ]; then
+            echo "FAIL: Expected 400, got $HTTP_CODE"
+            echo "$RESPONSE"
+            exit 1
+          fi
+          echo "PASS: Invalid MD5 returns 400"
+
+      # --- 10. Cleanup ---
+      - name: Tear down stack
+        if: always()
+        run: docker compose down
+
+      # --- 11. Rotar cache (evita crecimiento infinito) ---
+      - name: Move cache
+        if: always()
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache || true

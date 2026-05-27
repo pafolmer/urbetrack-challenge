@@ -1,0 +1,9 @@
+# Forzar LF en scripts Bash (necesario para ejecución en Linux/Docker/CI)
+*.sh text eol=lf
+
+# Forzar LF en archivos de CI
+*.yml text eol=lf
+
+# Forzar LF en Dockerfile y configs
+Dockerfile text eol=lf
+nginx/*.conf text eol=lf
