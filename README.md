@@ -298,15 +298,17 @@ urbetrack-challenge/
 
 El workflow de GitHub Actions valida automáticamente en cada push:
 
-1. Checkout del código
-2. Build de imagen Docker (con cache de layers)
-3. Tag de imagen con SHA del commit
-4. Escaneo de vulnerabilidades con Trivy (HIGH/CRITICAL)
-5. Validación de sintaxis Docker Compose
-6. Levantamiento del stack completo
-7. Healthcheck real contra la API corriendo
-8. Test funcional contra `/validate-md5`
-9. Cleanup
+1. Checkout del código (historial completo)
+2. **Secret scanning** con Gitleaks (detecta credenciales expuestas en código e historial)
+3. **SAST** con Bandit (análisis estático de seguridad del código Python)
+4. Build de imagen Docker (con cache de layers)
+5. Tag de imagen con SHA del commit (trazabilidad)
+6. Escaneo de vulnerabilidades de imagen con Trivy (HIGH/CRITICAL)
+7. Validación de sintaxis Docker Compose
+8. Levantamiento del stack completo
+9. Healthcheck real contra la API corriendo
+10. Test funcional contra `/validate-md5` (hash calculado dinámicamente)
+11. Cleanup
 
 Se demuestra inyección de secrets mediante variable de entorno simulada desde GitHub Secrets.
 
