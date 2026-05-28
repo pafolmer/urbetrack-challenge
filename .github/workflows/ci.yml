@@ -97,22 +97,7 @@ jobs:
       - name: Wait for API to be healthy
         run: |
           chmod +x scripts/healthcheck.sh
-          MAX_RETRIES=12 HEALTH_URL=http://localhost:8080/health ./scripts/healthcheck.sh &
-          HEALTH_PID=$!
-          # Esperar a que el healthcheck pase (max 60s)
-          sleep 5
-          for i in $(seq 1 12); do
-            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
-              echo "API is healthy!"
-              kill $HEALTH_PID 2>/dev/null || true
-              exit 0
-            fi
-            echo "Waiting... attempt $i/12"
-            sleep 5
-          done
-          echo "API failed to become healthy"
-          kill $HEALTH_PID 2>/dev/null || true
-          exit 1
+          MAX_RETRIES=12 HEALTH_URL=http://localhost:8080/health ./scripts/healthcheck.sh
 
       # --- 9. Test funcional: validar endpoint principal ---
       - name: Functional test - validate-md5
