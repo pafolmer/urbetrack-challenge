@@ -79,8 +79,10 @@ def compute_md5(text: str) -> str:
     Calcula el MD5 hex digest de un string codificado en UTF-8.
 
     Retorna un string de 32 caracteres hexadecimales.
+    usedforsecurity=False indica que MD5 se usa como checksum de integridad,
+    no para seguridad criptográfica.
     """
-    return hashlib.md5(text.encode("utf-8")).hexdigest()
+    return hashlib.md5(text.encode("utf-8"), usedforsecurity=False).hexdigest()  # nosec B324
 
 
 # --- Endpoints ---
