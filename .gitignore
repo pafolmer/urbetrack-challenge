@@ -30,6 +30,9 @@ Thumbs.db
 .env
 .env.*
 
+# Kiro (AI tooling interno)
+.kiro/
+
 # Testing
 .pytest_cache/
 .coverage

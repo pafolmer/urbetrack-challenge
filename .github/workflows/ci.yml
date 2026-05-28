@@ -37,6 +37,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # --- 1.6. SAST - Static Application Security Testing (bandit) ---
+      # Analiza código Python buscando patrones inseguros (eval, hardcoded passwords, etc.)
+      - name: Python SAST (bandit)
+        run: |
+          pip install bandit
+          bandit -r app/ -f json -o bandit-report.json || true
+          bandit -r app/ -ll
+        # -ll = solo reporta MEDIUM+ severity. Falla si encuentra HIGH.
+
       # --- 2. Setup Docker Buildx (habilita cache avanzado) ---
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
