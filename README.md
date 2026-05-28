@@ -204,14 +204,15 @@ md5 = hashlib.md5(normalized.encode('utf-8')).hexdigest()
 - **Sin autenticación**: La API no implementa auth. En producción se agregaría en el proxy o con middleware.
 - **Sin persistencia**: No hay base de datos. La API es stateless.
 - **Sin TLS**: La comunicación es HTTP plano. En producción, TLS se termina en el load balancer o en Nginx.
-- **Rate limiting por IP**: En entornos con NAT compartido, múltiples usuarios legítimos podrían compartir IP y verse afectados.
+- **Rate limiting por IP**: En entornos con NAT compartido, múltiples usuarios legítimos podrían compartir IP y verse afectados. Mitigación para producción: mover el rate limiting al Ingress Controller o WAF, filtrando por tokens JWT o API Keys en lugar de IP.
 
 ## Riesgos y Mejoras para Producción
 
 ### Despliegue y Orquestación
 
-- Migrar de Docker Compose a Kubernetes (EKS/GKE) con manifiestos Helm o Kustomize.
-- Gestión declarativa del estado con GitOps (ArgoCD/FluxCD).
+- Migrar de Docker Compose a un clúster Kubernetes (AWS EKS) aprovisionado con Terraform.
+- Escalado de nodos zero-cost y just-in-time mediante Karpenter.
+- Gestión declarativa del estado con GitOps (ArgoCD) para entornos efímeros y de producción.
 - Estrategia blue-green o canary para deploys sin downtime.
 
 ### Rollback
@@ -299,11 +300,11 @@ urbetrack-challenge/
 El workflow de GitHub Actions valida automáticamente en cada push:
 
 1. Checkout del código (historial completo)
-2. **Secret scanning** con Gitleaks (detecta credenciales expuestas en código e historial)
-3. **SAST** con Bandit (análisis estático de seguridad del código Python)
+2. **Secret scanning** con Gitleaks — quality gate estricto: bloquea el pipeline ante credenciales expuestas (exit-code 1)
+3. **SAST** con Bandit — quality gate estricto: bloquea ante vulnerabilidades de código Python (exit-code 1)
 4. Build de imagen Docker (con cache de layers)
 5. Tag de imagen con SHA del commit (trazabilidad)
-6. Escaneo de vulnerabilidades de imagen con Trivy (HIGH/CRITICAL)
+6. Escaneo de vulnerabilidades de imagen con Trivy (HIGH/CRITICAL) — reporta sin bloquear por CVEs en dependencias transitivas sin fix upstream
 7. Validación de sintaxis Docker Compose
 8. Levantamiento del stack completo
 9. Healthcheck real contra la API corriendo
