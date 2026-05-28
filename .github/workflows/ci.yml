@@ -27,6 +27,15 @@ jobs:
       # --- 1. Checkout del código ---
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # Historial completo para que gitleaks escanee todos los commits
+
+      # --- 1.5. Secret scanning (gitleaks) ---
+      # Escanea código + historial buscando secrets expuestos (AWS keys, tokens, passwords)
+      - name: Secret scanning (gitleaks)
+        uses: gitleaks/gitleaks-action@v2.3.7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # --- 2. Setup Docker Buildx (habilita cache avanzado) ---
       - name: Set up Docker Buildx
